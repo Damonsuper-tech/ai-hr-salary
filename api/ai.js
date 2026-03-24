@@ -1,6 +1,5 @@
 export default async function handler(req, res) {
   try {
-    // 兼容没有 body 的情况
     const body = req.body || {};
     const text = body.text || "工资10000 奖金2000";
 
@@ -14,22 +13,32 @@ export default async function handler(req, res) {
         model: "gpt-4o-mini",
         messages: [
           {
-            role: "user",
-            content: text,
+            role: "system",
+            content: "你是一个薪酬计算助手，只返回计算结果数字"
           },
+          {
+            role: "user",
+            content: text
+          }
         ],
+        temperature: 0
       }),
     });
 
     const data = await response.json();
 
-    // 👇 关键：确保一定返回JSON
+    // ❗ 如果 OpenAI 返回错误，直接透出
+    if (data.error) {
+      return res.status(500).json({
+        error: data.error.message
+      });
+    }
+
     return res.status(200).json(data);
 
   } catch (error) {
-    // 👇 把真实错误返回给前端（方便你看到）
     return res.status(500).json({
-      error: error.message,
+      error: error.message
     });
   }
 }

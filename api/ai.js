@@ -1,7 +1,5 @@
 const https = require("https");
 const ExcelJS = require("exceljs");
-const fs = require("fs");
-const path = require("path");
 
 module.exports = async function (req, res) {
   try {
@@ -55,26 +53,18 @@ module.exports = async function (req, res) {
             const json = JSON.parse(data);
             let result = "";
 
-            // 多种结构兼容解析
             if (json.choices && json.choices.length > 0) {
               const msg = json.choices[0].message;
-              if (typeof msg.content === "string") {
-                result = msg.content;
-              } else if (Array.isArray(msg.content)) {
+              if (typeof msg.content === "string") result = msg.content;
+              else if (Array.isArray(msg.content))
                 result = msg.content.map(c => c.text || "").join("");
-              } else if (msg.reasoning_content) {
-                result = msg.reasoning_content;
-              }
+              else if (msg.reasoning_content) result = msg.reasoning_content;
             }
 
-            // AI兜底计算
             if (!result) {
               const nums = text.match(/\d+/g);
-              if (nums && nums.length >= 2) {
-                result = String(Number(nums[0]) + Number(nums[1]));
-              } else {
-                result = "0";
-              }
+              if (nums && nums.length >= 2) result = String(Number(nums[0]) + Number(nums[1]));
+              else result = "0";
             }
 
             resolve(Number(result));
@@ -89,62 +79,45 @@ module.exports = async function (req, res) {
       request.end();
     });
 
-    // --------------------------
     // 中国个税计算
     const calcChinaTax = (income) => {
       const threshold = 5000;
-      const socialSecurity = income * 0.105; // 五险一金示例比例
+      const socialSecurity = income * 0.105;
       const taxableIncome = income - socialSecurity - threshold;
       if (taxableIncome <= 0) return 0;
-
       let tax = 0;
       if (taxableIncome <= 36000) tax = taxableIncome * 0.03;
-      else if (taxableIncome <= 144000) tax = taxableIncome * 0.10 - 2520;
-      else if (taxableIncome <= 300000) tax = taxableIncome * 0.20 - 16920;
+      else if (taxableIncome <= 144000) tax = taxableIncome * 0.1 - 2520;
+      else if (taxableIncome <= 300000) tax = taxableIncome * 0.2 - 16920;
       else if (taxableIncome <= 420000) tax = taxableIncome * 0.25 - 31920;
-      else if (taxableIncome <= 660000) tax = taxableIncome * 0.30 - 52920;
+      else if (taxableIncome <= 660000) tax = taxableIncome * 0.3 - 52920;
       else if (taxableIncome <= 960000) tax = taxableIncome * 0.35 - 85920;
       else tax = taxableIncome * 0.45 - 181920;
-
       return Math.max(tax, 0);
     };
 
     const tax = calcChinaTax(totalIncome);
     const netIncome = totalIncome - tax;
 
-    // --------------------------
-    // 生成 Excel 文件
+    // 生成 Excel buffer
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("薪酬表");
-
     sheet.columns = [
       { header: "姓名", key: "name", width: 15 },
       { header: "总收入", key: "total", width: 15 },
       { header: "个税", key: "tax", width: 15 },
       { header: "净收入", key: "net", width: 15 },
     ];
+    sheet.addRow({ name, total: totalIncome, tax, net: netIncome });
 
-    sheet.addRow({
-      name,
-      total: totalIncome,
-      tax: tax,
-      net: netIncome,
-    });
+    const buffer = await workbook.xlsx.writeBuffer();
 
-    const filePath = path.join("/tmp", `salary_${Date.now()}.xlsx`);
-    await workbook.xlsx.writeFile(filePath);
-
-    // --------------------------
-    // 返回 Excel 下载 + JSON 结果
     res.setHeader("Content-Disposition", `attachment; filename=salary.xlsx`);
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-
-    const fileBuffer = fs.readFileSync(filePath);
-    res.end(fileBuffer);
-
+    res.end(buffer);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

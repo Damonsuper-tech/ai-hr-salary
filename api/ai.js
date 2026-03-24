@@ -10,7 +10,18 @@ module.exports = async function (req, res) {
       messages: [
         {
           role: "user",
-          content: `请计算薪资，只返回数字：${text}`
+          content: `
+你是一个薪酬计算器。
+
+规则：
+- 工资 + 奖金 = 总收入
+- 只返回最终数字
+- 不要解释
+
+输入：${text}
+
+输出：
+`
         }
       ]
     });

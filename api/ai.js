@@ -1,46 +1,60 @@
-module.exports = async function handler(req, res) {
+const https = require("https");
+
+module.exports = async function (req, res) {
   try {
     const body = req.body || {};
     const text = body.text || "工资10000 奖金2000";
 
-    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    const postData = JSON.stringify({
+      model: "deepseek-chat",
+      messages: [
+        {
+          role: "user",
+          content: `请计算薪资，只返回数字：${text}`
+        }
+      ]
+    });
+
+    const options = {
+      hostname: "api.deepseek.com",
+      path: "/v1/chat/completions",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Bearer sk-980bcaef523b44388128f28f4cc6995a" // ❗必须替换成你真实Key（纯英文）
-      },
-      body: JSON.stringify({
-        model: "deepseek-chat",
-        messages: [
-          {
-            role: "user",
-            content: `请计算薪资，只返回数字：${text}` // ✅ 这里可以写中文
-          }
-        ]
-      })
+        "Authorization": "Bearer sk-980bcaef523b44388128f28f4cc6995a",
+        "Content-Length": Buffer.byteLength(postData)
+      }
+    };
+
+    const request = https.request(options, (response) => {
+      let data = "";
+
+      response.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      response.on("end", () => {
+        try {
+          const json = JSON.parse(data);
+
+          const result =
+            json.choices?.[0]?.message?.content || "没有结果";
+
+          res.status(200).json({ result });
+        } catch (e) {
+          res.status(500).json({ error: "解析失败：" + data });
+        }
+      });
     });
 
-    const data = await response.json();
-
-    const data = await response.json();
-
-    return res.status(200).json({
-      const result =
-  data.choices &&
-  data.choices[0] &&
-  data.choices[0].message &&
-  data.choices[0].message.content
-    ? data.choices[0].message.content
-    : "没有返回结果";
-
-return res.status(200).json({
-  result
-});
+    request.on("error", (error) => {
+      res.status(500).json({ error: error.message });
     });
+
+    request.write(postData);
+    request.end();
 
   } catch (error) {
-    return res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
-}
+};

@@ -3,6 +3,8 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const text = body.text || "工资10000 奖金2000";
 
+    const safeText = encodeURIComponent(text);
+
     const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -14,7 +16,7 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "user",
-            content: `请计算薪资，只返回数字：${text}`
+            content: safeText
           }
         ]
       })
@@ -22,8 +24,12 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    const result = decodeURIComponent(
+      data.choices?.[0]?.message?.content || ""
+    );
+
     return res.status(200).json({
-      result: data.choices?.[0]?.message?.content
+      result
     });
 
   } catch (error) {

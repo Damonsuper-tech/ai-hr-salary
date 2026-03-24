@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   try {
     const body = req.body || {};
     const text = body.text || "工资10000 奖金2000";

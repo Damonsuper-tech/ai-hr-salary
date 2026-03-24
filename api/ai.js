@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const text = body.text || "工资10000 奖金2000";
 
     const response = await client.responses.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini",
       input: `请计算薪资，只返回数字结果：${text}`
     });
 

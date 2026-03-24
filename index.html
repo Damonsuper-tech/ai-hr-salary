@@ -2,76 +2,73 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>AI薪酬系统</title>
+  <title>AI薪酬计算系统</title>
 </head>
-<body>
+<body style="font-family: Arial; padding: 40px;">
 
   <h1>AI薪酬计算系统</h1>
 
-  <input id="input" placeholder="输入：工资8000 奖金2000">
-  <button onclick="aiCalculate()">AI计算</button>
+  <input 
+    id="input" 
+    placeholder="例如：工资10000 奖金1000"
+    style="width: 300px; padding: 8px;"
+  />
+
+  <button 
+    onclick="aiCalculate()" 
+    style="padding: 8px 16px; margin-left: 10px;"
+  >
+    AI计算
+  </button>
 
   <h3>结果：</h3>
-  <div id="output"></div>
+  <div id="output" style="margin-top: 10px; font-size: 18px;"></div>
 
   <script>
     async function aiCalculate() {
 
       const input = document.getElementById("input").value;
 
-      const res = await fetch("/api/ai", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          text: input
-        })
-      });
+      if (!input) {
+        document.getElementById("output").innerText = "请输入内容";
+        return;
+      }
 
-      const text = await res.text();
-console.log(text);
-
-let data;
-try {
-  data = JSON.parse(text);
-} catch (e) {
-  document.getElementById("output").innerText = text;
-  return;
-}
-
-      document.getElementById("output").innerText =
+      try {
         const res = await fetch("/api/ai", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ text: input })
-});
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ text: input })
+        });
 
-const text = await res.text();
-console.log("返回内容:", text);
+        const text = await res.text();
+        console.log("返回内容:", text);
 
-let data;
-try {
-  data = JSON.parse(text);
-} catch (e) {
-  document.getElementById("output").innerText = text;
-  return;
-}
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          document.getElementById("output").innerText = text;
+          return;
+        }
 
-// ✅ 核心判断
-if (data.choices && data.choices.length > 0) {
-  document.getElementById("output").innerText =
-    data.choices[0].message.content;
-} else if (data.error) {
-  document.getElementById("output").innerText =
-    "错误：" + data.error;
-} else {
-  document.getElementById("output").innerText =
-    JSON.stringify(data);
-}
+        if (data.choices && data.choices.length > 0) {
+          document.getElementById("output").innerText =
+            data.choices[0].message.content;
+        } else if (data.error) {
+          document.getElementById("output").innerText =
+            "错误：" + data.error;
+        } else {
+          document.getElementById("output").innerText =
+            JSON.stringify(data);
+        }
 
+      } catch (error) {
+        document.getElementById("output").innerText =
+          "请求失败：" + error.message;
+      }
     }
   </script>
 

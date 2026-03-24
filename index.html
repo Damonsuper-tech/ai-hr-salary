@@ -56,7 +56,8 @@
 
         if (data.choices && data.choices.length > 0) {
           document.getElementById("output").innerText =
-            data.choices[0].message.content;
+            document.getElementById("output").innerText =
+  data.result || data.error;
         } else if (data.error) {
           document.getElementById("output").innerText =
             "错误：" + data.error;

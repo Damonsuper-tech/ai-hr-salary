@@ -9,26 +9,17 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const text = body.text || "工资10000 奖金2000";
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "你是一个薪酬计算助手，只返回最终数字结果"
-        },
-        {
-          role: "user",
-          content: text
-        }
-      ],
+    const response = await client.responses.create({
+      model: "gpt-4.1-mini",
+      input: `请计算薪资，只返回数字结果：${text}`
     });
 
     return res.status(200).json({
-      choices: completion.choices
+      result: response.output_text
     });
 
   } catch (error) {
-    console.error("真实错误：", error); // ⭐ 关键
+    console.error("真实错误：", error);
 
     return res.status(500).json({
       error: error.message

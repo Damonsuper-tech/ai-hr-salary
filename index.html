@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>AI HR 薪酬系统</title>
+
+<style>
+body{
+font-family: Arial;
+background:#f5f6fa;
+display:flex;
+justify-content:center;
+align-items:center;
+min-height:100vh;
+}
+
+.container{
+background:white;
+padding:40px;
+border-radius:10px;
+width:500px;
+}
+
+input{
+width:100%;
+padding:10px;
+margin-top:10px;
+}
+
+button{
+margin-top:10px;
+padding:10px;
+width:100%;
+background:#007bff;
+color:white;
+border:none;
+}
+
+table{
+margin-top:20px;
+border-collapse: collapse;
+width:100%;
+}
+
+td, th{
+border:1px solid #ddd;
+padding:8px;
+text-align:center;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>AI HR 薪酬系统</h2>
+
+<p>员工姓名</p>
+<input id="name">
+
+<p>基本工资</p>
+<input id="baseSalary" type="number">
+
+<p>奖金</p>
+<input id="bonus" type="number">
+
+<button onclick="addEmployee()">添加员工</button>
+
+<button onclick="downloadCSV()">导出薪酬表</button>
+
+<table>
+<tr>
+<th>姓名</th>
+<th>总薪酬</th>
+<th>个税</th>
+<th>到手工资</th>
+</tr>
+<tbody id="tableBody"></tbody>
+</table>
+
+</div>
+
+<script>
+
+let employees = [];
+
+// 个税计算
+function calculateTax(salary){
+  if(salary <= 5000) return 0;
+  if(salary <= 8000) return salary * 0.03;
+  if(salary <= 17000) return salary * 0.1;
+  return salary * 0.2;
+}
+
+// 添加员工
+function addEmployee(){
+
+let name = document.getElementById("name").value;
+let base = Number(document.getElementById("baseSalary").value);
+let bonus = Number(document.getElementById("bonus").value);
+
+if(!name){
+  alert("请输入姓名");
+  return;
+}
+
+let total = base + bonus;
+let tax = calculateTax(total);
+let net = total - tax;
+
+employees.push({ name, total, tax, net });
+
+renderTable();
+
+}
+
+// 渲染表格
+function renderTable(){
+
+let html = "";
+
+employees.forEach(e => {
+  html += `
+    <tr>
+      <td>${e.name}</td>
+      <td>${e.total}</td>
+      <td>${e.tax.toFixed(2)}</td>
+      <td>${e.net.toFixed(2)}</td>
+    </tr>
+  `;
+});
+
+document.getElementById("tableBody").innerHTML = html;
+
+}
+
+// 导出CSV
+function downloadCSV(){
+
+let csv = "姓名,总薪酬,个税,到手工资\n";
+
+employees.forEach(e=>{
+  csv += `${e.name},${e.total},${e.tax},${e.net}\n`;
+});
+
+let blob = new Blob([csv], { type: "text/csv" });
+let url = URL.createObjectURL(blob);
+
+let a = document.createElement("a");
+a.href = url;
+a.download = "salary.csv";
+a.click();
+
+}
+
+</script>
+
+</body>
+</html>

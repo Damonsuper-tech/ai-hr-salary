@@ -29,7 +29,16 @@
         })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+console.log(text);
+
+let data;
+try {
+  data = JSON.parse(text);
+} catch (e) {
+  document.getElementById("output").innerText = text;
+  return;
+}
 
       document.getElementById("output").innerText =
         data.choices[0].message.content;

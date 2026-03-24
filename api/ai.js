@@ -48,10 +48,34 @@ module.exports = async function (req, res) {
         try {
           const json = JSON.parse(data);
 
-          const result =
-            json.choices?.[0]?.message?.content || "没有结果";
+          let result = "";
 
-          res.status(200).json({ result });
+// 多种结构兼容解析
+if (json.choices && json.choices.length > 0) {
+  const msg = json.choices[0].message;
+
+  if (typeof msg.content === "string") {
+    result = msg.content;
+  } else if (Array.isArray(msg.content)) {
+    result = msg.content.map(c => c.text || "").join("");
+  } else if (msg.reasoning_content) {
+    result = msg.reasoning_content;
+  }
+}
+
+// 如果AI没返回，兜底自己算
+if (!result) {
+  const nums = text.match(/\d+/g);
+  if (nums && nums.length >= 2) {
+    result = String(Number(nums[0]) + Number(nums[1]));
+  } else {
+    result = "无法计算";
+  }
+}
+
+res.status(200).json({ result });
+
+
         } catch (e) {
           res.status(500).json({ error: "解析失败：" + data });
         }

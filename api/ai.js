@@ -1,16 +1,22 @@
 const https = require("https");
+const ExcelJS = require("exceljs");
+const fs = require("fs");
+const path = require("path");
 
 module.exports = async function (req, res) {
   try {
     const body = req.body || {};
     const text = body.text || "工资10000 奖金2000";
+    const name = body.name || "员工";
 
-    const postData = JSON.stringify({
-      model: "deepseek-chat",
-      messages: [
-        {
-          role: "user",
-          content: `
+    // 调用 Deepseek API
+    const totalIncome = await new Promise((resolve, reject) => {
+      const postData = JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "user",
+            content: `
 你是一个薪酬计算器。
 
 规则：
@@ -22,72 +28,122 @@ module.exports = async function (req, res) {
 
 输出：
 `
+          }
+        ]
+      });
+
+      const options = {
+        hostname: "api.deepseek.com",
+        path: "/v1/chat/completions",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-980bcaef523b44388128f28f4cc6995a",
+          "Content-Length": Buffer.byteLength(postData)
         }
-      ]
+      };
+
+      const request = https.request(options, (response) => {
+        let data = "";
+
+        response.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        response.on("end", () => {
+          try {
+            const json = JSON.parse(data);
+            let result = "";
+
+            // 多种结构兼容解析
+            if (json.choices && json.choices.length > 0) {
+              const msg = json.choices[0].message;
+              if (typeof msg.content === "string") {
+                result = msg.content;
+              } else if (Array.isArray(msg.content)) {
+                result = msg.content.map(c => c.text || "").join("");
+              } else if (msg.reasoning_content) {
+                result = msg.reasoning_content;
+              }
+            }
+
+            // AI兜底计算
+            if (!result) {
+              const nums = text.match(/\d+/g);
+              if (nums && nums.length >= 2) {
+                result = String(Number(nums[0]) + Number(nums[1]));
+              } else {
+                result = "0";
+              }
+            }
+
+            resolve(Number(result));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+
+      request.on("error", (error) => reject(error));
+      request.write(postData);
+      request.end();
     });
 
-    const options = {
-      hostname: "api.deepseek.com",
-      path: "/v1/chat/completions",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer sk-980bcaef523b44388128f28f4cc6995a",
-        "Content-Length": Buffer.byteLength(postData)
-      }
+    // --------------------------
+    // 中国个税计算
+    const calcChinaTax = (income) => {
+      const threshold = 5000;
+      const socialSecurity = income * 0.105; // 五险一金示例比例
+      const taxableIncome = income - socialSecurity - threshold;
+      if (taxableIncome <= 0) return 0;
+
+      let tax = 0;
+      if (taxableIncome <= 36000) tax = taxableIncome * 0.03;
+      else if (taxableIncome <= 144000) tax = taxableIncome * 0.10 - 2520;
+      else if (taxableIncome <= 300000) tax = taxableIncome * 0.20 - 16920;
+      else if (taxableIncome <= 420000) tax = taxableIncome * 0.25 - 31920;
+      else if (taxableIncome <= 660000) tax = taxableIncome * 0.30 - 52920;
+      else if (taxableIncome <= 960000) tax = taxableIncome * 0.35 - 85920;
+      else tax = taxableIncome * 0.45 - 181920;
+
+      return Math.max(tax, 0);
     };
 
-    const request = https.request(options, (response) => {
-      let data = "";
+    const tax = calcChinaTax(totalIncome);
+    const netIncome = totalIncome - tax;
 
-      response.on("data", (chunk) => {
-        data += chunk;
-      });
+    // --------------------------
+    // 生成 Excel 文件
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("薪酬表");
 
-      response.on("end", () => {
-        try {
-          const json = JSON.parse(data);
+    sheet.columns = [
+      { header: "姓名", key: "name", width: 15 },
+      { header: "总收入", key: "total", width: 15 },
+      { header: "个税", key: "tax", width: 15 },
+      { header: "净收入", key: "net", width: 15 },
+    ];
 
-          let result = "";
-
-// 多种结构兼容解析
-if (json.choices && json.choices.length > 0) {
-  const msg = json.choices[0].message;
-
-  if (typeof msg.content === "string") {
-    result = msg.content;
-  } else if (Array.isArray(msg.content)) {
-    result = msg.content.map(c => c.text || "").join("");
-  } else if (msg.reasoning_content) {
-    result = msg.reasoning_content;
-  }
-}
-
-// 如果AI没返回，兜底自己算
-if (!result) {
-  const nums = text.match(/\d+/g);
-  if (nums && nums.length >= 2) {
-    result = String(Number(nums[0]) + Number(nums[1]));
-  } else {
-    result = "无法计算";
-  }
-}
-
-res.status(200).json({ result });
-
-
-        } catch (e) {
-          res.status(500).json({ error: "解析失败：" + data });
-        }
-      });
+    sheet.addRow({
+      name,
+      total: totalIncome,
+      tax: tax,
+      net: netIncome,
     });
 
-    request.on("error", (error) => {
-      res.status(500).json({ error: error.message });
-    });
+    const filePath = path.join("/tmp", `salary_${Date.now()}.xlsx`);
+    await workbook.xlsx.writeFile(filePath);
 
-    request.write(postData);
-    request.end();
+    // --------------------------
+    // 返回 Excel 下载 + JSON 结果
+    res.setHeader("Content-Disposition", `attachment; filename=salary.xlsx`);
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    const fileBuffer = fs.readFileSync(filePath);
+    res.end(fileBuffer);
 
   } catch (error) {
     res.status(500).json({ error: error.message });

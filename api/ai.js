@@ -22,8 +22,20 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    const data = await response.json();
+
     return res.status(200).json({
-      result: data.choices?.[0]?.message?.content
+      const result =
+  data.choices &&
+  data.choices[0] &&
+  data.choices[0].message &&
+  data.choices[0].message.content
+    ? data.choices[0].message.content
+    : "没有返回结果";
+
+return res.status(200).json({
+  result
+});
     });
 
   } catch (error) {
